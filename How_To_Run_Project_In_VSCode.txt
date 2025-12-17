@@ -1,0 +1,53 @@
+================================================================================
+HOW TO RUN TEXTILE MILL MONITORING SYSTEM IN VS CODE
+================================================================================
+
+STEP 1: OPEN THE TERMINAL
+--------------------------------------------------------------------------------
+In VS Code, open the integrated terminal:
+- Press Ctrl + ` (backtick) 
+- OR go to View → Terminal
+
+STEP 2: INSTALL DEPENDENCIES
+--------------------------------------------------------------------------------
+Run this command to install the required Python packages:
+
+    pip install -r requirements.txt
+
+STEP 3: SET UP ENVIRONMENT VARIABLES
+--------------------------------------------------------------------------------
+Create a .env file from the example:
+
+    copy .env.example .env
+
+Then open .env and fill in your Supabase credentials:
+- SUPABASE_URL
+- SUPABASE_KEY
+
+STEP 4: START THE DATA STREAMS (OPTIONAL)
+--------------------------------------------------------------------------------
+If you want live simulated data, run:
+
+    python simulate_all.py
+
+STEP 5: RUN THE DASHBOARD
+--------------------------------------------------------------------------------
+In a new terminal, run the Streamlit dashboard:
+
+    streamlit run dashboard.py
+
+This will start the server and automatically open your browser at:
+http://localhost:8501
+
+================================================================================
+QUICK REFERENCE COMMANDS
+================================================================================
+
+| Step                  | Command                          |
+|-----------------------|----------------------------------|
+| Install dependencies  | pip install -r requirements.txt  |
+| Create env file       | copy .env.example .env           |
+| Run data simulation   | python simulate_all.py           |
+| Run dashboard         | streamlit run dashboard.py       |
+
+================================================================================
