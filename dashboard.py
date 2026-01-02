@@ -194,23 +194,70 @@ if live_mode:
     time.sleep(3) # Wait 3 seconds
     st.rerun()    # Refresh app
 
+def get_all_time_output():
+    """Fetch total output sum from all time."""
+    try:
+        # We'll use a fast query to sum the actual_output column
+        # Note: In a real Supabase setting, we might use .select('actual_output.sum()') or similar if supported via RPC
+        # For now, we'll fetch just the column to be safe on bandwidth, but for large datasets we should use an RPC.
+        # However, provided the project scale, fetching this column is acceptable or we limit to a reasonable number if it's too huge.
+        # Ideally: response = supabase.table("production_data").select("actual_output").execute()
+        # But to be safe and simple, let's just grab a larger limit for the "Total" if we don't have a sum RPC.
+        # OR: We can just use the current dataset if historical data isn't being preserved forever.
+        # Let's try to get a larger chunk.
+        
+        # FIX: Supabase defaults to 1000 rows. We need to increase this limit to capture "all time" data.
+        # For a real production app, we would use a Postgres function (RPC) for 'sum', but for this demo, 
+        # fetching 100,000 rows is a quick fix.
+        response = supabase.table("production_data").select("actual_output").order("timestamp", desc=True).limit(100000).execute()
+        df = pd.DataFrame(response.data)
+        if not df.empty:
+            return df['actual_output'].sum()
+        return 0
+    except Exception as e:
+        print(f"Error fetching total output: {e}")
+        return 0
+
 # Fetch Data
 prod_df, sup_df = get_data()
 
 if not prod_df.empty:
     # Process Production Data
     prod_df['timestamp'] = pd.to_datetime(prod_df['timestamp'])
+    
+    # Check for Stale Data (Simulation Stopped?)
+    last_update = prod_df['timestamp'].max()
+    
+    # FIX: Ensure we compare timezone-aware with timezone-aware (or naive with naive)
+    # Since our simulation sends naive UTC (datetime.utcnow().isoformat()), we must compare with naive UTC.
+    if last_update.tzinfo is None:
+        now = pd.Timestamp.utcnow().replace(tzinfo=None)
+    else:
+        now = pd.Timestamp.now(tz=last_update.tzinfo)
+        
+    minutes_since_update = (now - last_update).total_seconds() / 60
+    
+    if minutes_since_update > 2:
+        st.sidebar.error(f"⚠️ **Data Stream Inactive**\n\nLast update: {int(minutes_since_update)} min ago.\n\nPlease run `python simulate_all.py` in your terminal to resume data.")
+    else:
+        st.sidebar.success("✅ **Data Stream Active**")
+
     prod_df['output_gap'] = prod_df['target_output'] - prod_df['actual_output']
     prod_df['efficiency'] = (prod_df['actual_output'] / prod_df['target_output']) * 100
     
-    # ML Predictions using trained models
-    prod_risk, sup_risk = get_ml_predictions(prod_df, sup_df)
+    # ML Predictions using trained models (Use only recent data for 'Live' feel - last 5 records)
+    prod_risk, sup_risk = get_ml_predictions(prod_df.head(5), sup_df)
     
-    avg_output = prod_df['actual_output'].mean()
-    avg_efficiency = prod_df['efficiency'].mean()
+    # KPIs based on *LATEST* value, not average of last 100
+    current_efficiency = prod_df['efficiency'].iloc[0]
+    avg_efficiency = prod_df['efficiency'].mean() # Keep for reference if needed
+    avg_output = prod_df['actual_output'].mean() # RESTORED
+    
     latest_output = prod_df['actual_output'].iloc[0] if len(prod_df) > 0 else 0
     output_delta = latest_output - avg_output
-    total_output = prod_df['actual_output'].sum()  # Total production output
+    
+    # Fetch all-time total
+    total_output_all_time = get_all_time_output()
     
     # Calculate time span for context
     if len(prod_df) > 1:
@@ -221,11 +268,14 @@ if not prod_df.empty:
 
     # --- TOP ROW: KPI CARDS ---
     kpi1, kpi2, kpi3, kpi4, kpi5 = st.columns(5)
-    kpi1.metric("Current Efficiency", f"{avg_efficiency:.1f}%", f"{avg_efficiency - 90:.1f}% vs target")
-    kpi2.metric("🤖 ML Risk Score", f"{prod_risk['risk_score']}%", prod_risk['risk_level'], delta_color="inverse")
+    # UPDATED: Use current_efficiency instead of avg
+    kpi1.metric("Current Efficiency", f"{current_efficiency:.1f}%", f"{current_efficiency - 90:.1f}% vs target")
+    # RENAMED: ML Risk Score -> Production Downtime Risk
+    kpi2.metric("⚠️ Production Downtime Risk", f"{prod_risk['risk_score']}%", prod_risk['risk_level'], delta_color="inverse")
     kpi3.metric("Supply Delay Risk", f"{sup_risk['delay_probability']}%", sup_risk['risk_level'], delta_color="inverse")
     kpi4.metric("Avg Output/Cycle", f"{avg_output:.0f}", f"{output_delta:+.0f} units")
-    kpi5.metric(f"📦 Total Output ({time_label})", f"{total_output:,}", "Units Produced")
+    # UPDATED: Total Output is now All-time
+    kpi5.metric("📦 Total Output (All-time)", f"{total_output_all_time:,}", "Units Produced")
 
     # --- SECTION 2: REAL-TIME CHARTS ---
     st.markdown("### 📈 Live Machine Performance")

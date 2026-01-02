@@ -230,15 +230,29 @@ class MLModelManager:
         if df.empty:
             return {'risk_score': 0, 'risk_level': 'Unknown', 'contributing_factors': {}}
         
-        avg_temp = df['temperature_c'].mean()
+        # Updated heuristic with Causal Logic (Thermal Stress)
+        
+        # Calculate Thermal Stress Index
+        # Formula: (temp - 30) * (speed / 1000)
+        # Higher index = Higher risk
+        
+        df_copy = df.copy()
+        df_copy['thermal_stress'] = (df_copy['temperature_c'] - 30) * (df_copy['speed_rpm'] / 1000)
+        
+        avg_stress = df_copy['thermal_stress'].mean()
         avg_downtime = df['downtime_minutes'].mean()
         
-        risk_score = 20
-        if avg_temp > 35:
-            risk_score += (avg_temp - 35) * 3
-        if avg_downtime > 1.5:
-            risk_score += avg_downtime * 10
+        risk_score = 15 # Base risk
         
+        # Stress impact
+        if avg_stress > 5:
+            risk_score += (avg_stress - 5) * 8
+            
+        # Downtime impact
+        if avg_downtime > 0.5:
+            risk_score += avg_downtime * 15
+            
+        # Cap at 99
         risk_score = min(max(risk_score, 0), 99)
         
         risk_level = "CRITICAL" if risk_score > 70 else "HIGH" if risk_score > 50 else "MEDIUM" if risk_score > 30 else "LOW"
@@ -246,8 +260,12 @@ class MLModelManager:
         return {
             'risk_score': round(risk_score, 1),
             'risk_level': risk_level,
-            'contributing_factors': self._get_heuristic_factors(df),
-            'model_used': 'Heuristic Fallback'
+            'contributing_factors': {
+                "Thermal Stress": f"Index: {avg_stress:.1f} (High)" if avg_stress > 5 else "Normal",
+                "Machine Load": "High" if df['speed_rpm'].mean() > 900 else "Normal",
+                "Recent Downtime": f"{avg_downtime:.1f} min avg"
+            },
+            'model_used': 'Heuristic Fallback (Causal)'
         }
     
     def _fallback_supplier_delay(self, df: pd.DataFrame) -> dict:

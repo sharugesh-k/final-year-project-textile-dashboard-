@@ -14,12 +14,16 @@ except ImportError:
     from machine_stream import start_streaming as start_machine_stream
     from supplier_stream import start_streaming as start_supplier_stream
 
+import traceback
+
 def run_machine_stream():
     try:
         print("Starting Machine Stream...")
         start_machine_stream(interval_seconds=3)
     except Exception as e:
         print(f"Machine Stream Error: {e}")
+        traceback.print_exc()
+
 
 def run_supplier_stream():
     try:

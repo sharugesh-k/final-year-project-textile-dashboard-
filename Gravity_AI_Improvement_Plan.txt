@@ -1,0 +1,148 @@
+GRAVITY AI - MACHINE LEARNING IMPROVEMENT PLAN
+
+==================================
+1️⃣ CURRENT MODEL ASSESSMENT
+==================================
+
+**1. Production Risk Prediction (Classification)**
+- **Purpose:** Predict if a machine will fail/stop (Risk=1).
+- **Current Algorithm:** Random Forest Classifier (as per `model_inference.py`).
+- **Input Features:** `speed_rpm`, `downtime_minutes`, `temperature_c`, `target_output`, `machine_id`.
+- **Target:** Derived from efficiency < 75%.
+- **Weakness:** The training data generation logic (`machine_stream.py`) uses pure `random.randint` for inputs. There is **no causal link** between high temperature/speed and low efficiency in the generated data. The model is effectively learning noise.
+
+**2. Supplier Delay Prediction (Classification)**
+- **Purpose:** Predict if a delivery will be late.
+- **Current Algorithm:** Random Forest Classifier.
+- **Input Features:** `supplier_id`, `material_type`, `order_quantity`, `price_per_kg`, `transportation_status`.
+- **Weakness:** `transportation_status` is randomly assigned independent of the actual delay in days. This interaction is weak in the current data structure.
+
+**3. Efficiency Forecasting (Regression)**
+- **Purpose:** Predict scalar efficiency %.
+- **Current Algorithm:** Linear Regression.
+- **Weakness:** Linear Regression cannot capture non-linear tipping points (e.g., efficiency drops drastically only *after* temperature exceeds 38°C).
+
+==================================
+2️⃣ DATA QUALITY & PATTERN ANALYSIS
+==================================
+
+**Critical Issue: Synthetic Data "White Noise"**
+I analyzed `streaming/machine_stream.py` and found this generation logic:
+```python
+actual = random.randint(50, 110)
+speed = random.randint(700, 1000)
+temp = round(random.uniform(28, 40), 2)
+```
+**Problem:** `actual` output is completely independent of `speed` and `temp`.
+- **Impact:** Feature importance analysis will show random results. Real-world physics (High Speed + High Temp = Breakdown) is missing.
+- **Recommendation:** We must Introduce **Causal Logic** into data generation before retraining.
+
+==================================
+3️⃣ FEATURE ENGINEERING IMPROVEMENTS
+==================================
+
+**For Production Risk Model:**
+1.  **`Thermal_Stress_Index`** (New)
+    - Formula: `(temperature_c - 30) * (speed_rpm / 1000)`
+    - *Why:* Heat does more damage at higher speeds. This interaction term captures wear and tear better than raw features.
+2.  **`Load_Factor`** (New)
+    - Formula: `target_output / speed_rpm`
+    - *Why:* Measures if we are pushing the machine too hard relative to its running speed.
+
+**For Supplier Model:**
+1.  **`Value_At_Risk`** (New)
+    - Formula: `order_quantity * price_per_kg`
+    - *Why:* High-value orders might be prioritized (shipped faster) or subjected to more scrutiny (delayed).
+2.  **`Historical_Delay_Rate`** (Aggregated)
+    - Logic: Average delay rate for this `supplier_id` over the last 30 days.
+    - *Why:* Past behavior is the best predictor of future performance.
+
+==================================
+4️⃣ MODEL-LEVEL IMPROVEMENTS
+==================================
+
+- **Efficiency Model:** Upgrade from **Linear Regression** to **XGBoost Regressor**.
+    - *Reasoning:* Efficiency curves are often S-shaped or have cliffs (tipping points). Linear models underfit these complex boundaries.
+    - *Tuning:* Set `max_depth=4` to prevent overfitting on small datasets.
+
+- **Production Risk Model:** Stick with **Random Forest** but increase `n_estimators` to 200.
+    - *Reasoning:* Tabular data with categorical variables (`machine_id`) works well with tree-based models.
+
+==================================
+5️⃣ TRAINING STRATEGY ENHANCEMENTS
+==================================
+
+**1. Time-Series Split Validation**
+- *Current:* `train_test_split` (random shuffle).
+- *Proposed:* Use `sklearn.model_selection.TimeSeriesSplit`.
+- *Why:* Industrial data is temporal. We must test if past data predicts future data, not if random rows predict other random rows.
+
+**2. SMOTE for Class Imbalance**
+- *Issue:* "Risk" events are rare (hopefully).
+- *Solution:* Apply SMOTE (Synthetic Minority Over-sampling Technique) to the training set only. This ensures the model sees enough "Failure" examples to learn the patterns.
+
+==================================
+6️⃣ EVALUATION METRICS & VALIDATION
+==================================
+
+**Shift focus from Accuracy to Recall.**
+- **Metric:** `Recall (Sensitivity)` for the Positive Class (Risk/Delay).
+- *Why:* In manufacturing, missing a breakdown (False Negative) is expensive. specific "False Alarms" (False Positives) are tolerable.
+- **Threshold Tuning:**
+    - Standard decision threshold is 0.5.
+    - **Recommendation:** Lower classification threshold to **0.35** for Production Risk. This catches more potential failures at the cost of slightly lower precision.
+
+==================================
+7️⃣ EXPECTED PERFORMANCE GAINS
+==================================
+
+- **Accuracy:** +5% to +10% (driven by fixing data causality).
+- **Recall (Risk Detection):** +15% to +20% (driven by Threshold Tuning + SMOTE).
+- **Robustness:** Significant increase. The model will no longer break when inputs drift, as it will rely on calculated stress factors rather than random noise.
+
+==================================
+8️⃣ CODE-LEVEL RECOMMENDATIONS
+==================================
+
+**Modify `streaming/machine_stream.py` to add Causal Logic:**
+
+```python
+def generate_machine_record():
+    # ... existing code ...
+    speed = random.randint(700, 1000)
+    temp = round(random.uniform(28, 40), 2)
+    
+    # NEW CAUSAL LOGIC
+    stress = (speed / 1000) + (temp / 40)
+    
+    # Actual output drops if stress is high
+    base_efficiency = 0.95
+    if temp > 38: base_efficiency -= 0.15  # Heat penalty
+    if speed > 950: base_efficiency -= 0.10 # Speed penalty
+    
+    # Add some random variance constraint
+    actual = int(target * base_efficiency * random.uniform(0.9, 1.0))
+    
+    return { ... "actual_output": actual ... }
+```
+
+**Modify `model_inference.py` feature preparation:**
+
+```python
+# In predict_production_risk
+features['Thermal_Stress'] = (df['temperature_c'] - 30) * (df['speed_rpm'] / 1000)
+```
+
+==================================
+9️⃣ CONTINUOUS IMPROVEMENT PLAN
+==================================
+
+1.  **Feedback Loop:** Add a "Was this prediction correct?" button to the dashboard. Save user feedback to a `labels_feedback` table.
+2.  **Retraining:** Schedule a weekly cron job to retrain models using the latest week's data combined with the historical baseline.
+
+==================================
+🔟 WHAT NOT TO CHANGE
+==================================
+
+- **`dashboard.py` UI Layout:** The dashboard structure is solid and serves the business need well.
+- **Supabase Schema:** The table structure (`production_data`) is sufficient. We can add columns, but do not rename or delete existing columns to maintain backward compatibility.

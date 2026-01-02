@@ -122,6 +122,11 @@ For Production Data:
 - Encode machine_id using LabelEncoder
 - Create rolling statistics if applicable
 
+# NEW: Derived Causal Features
+- `thermal_stress` = (temperature_c - 30) * (speed_rpm / 1000)
+- `load_factor` = target_output / speed_rpm
+- `efficiency_gap` = 100 - efficiency
+
 For Supplier Data:
 - Calculate 'delay_days' = actual_delivery_date - expected_delivery_date
 - Calculate 'quantity_gap' = order_quantity - received_quantity
