@@ -69,7 +69,7 @@ supabase = init_connection()
 # HELPER FUNCTIONS
 # -----------------------------------------------------------------------------
 def get_data():
-    prod = supabase.table("production_data").select("*").order("timestamp", desc=True).limit(100).execute().data
+    prod = supabase.table("production_data").select("*").order("timestamp", desc=True).limit(1000).execute().data
     sup = supabase.table("supplier_data").select("*").order("timestamp", desc=True).limit(50).execute().data
     return pd.DataFrame(prod), pd.DataFrame(sup)
 
@@ -109,7 +109,7 @@ digraph {
     node [shape=box, style="rounded,filled", fontname="Arial", fontsize=10]
     edge [fontname="Arial", fontsize=9]
     
-    // Data Sources
+    # Data Sources
     subgraph cluster_0 {
         label="📊 Data Sources"
         style=filled
@@ -119,7 +119,7 @@ digraph {
         Supplier [label="Supplier\\nData", fillcolor="#4a90d9", fontcolor=white]
     }
     
-    // Streaming Layer
+    # Streaming Layer
     subgraph cluster_1 {
         label="⚡ Real-time Streaming"
         style=filled
@@ -128,7 +128,7 @@ digraph {
         Stream [label="Python\\nData Streams", fillcolor="#5cb85c", fontcolor=white]
     }
     
-    // Database
+    # Database
     subgraph cluster_2 {
         label="💾 Cloud Storage"
         style=filled
@@ -137,7 +137,7 @@ digraph {
         Supabase [label="Supabase\\nPostgreSQL", fillcolor="#9b59b6", fontcolor=white]
     }
     
-    // ML Models
+    # ML Models
     subgraph cluster_3 {
         label="🤖 ML Models"
         style=filled
@@ -148,7 +148,7 @@ digraph {
         LR [label="Efficiency\\nPredictor", fillcolor="#f39c12", fontcolor=white]
     }
     
-    // Dashboard
+    # Dashboard
     subgraph cluster_4 {
         label="📈 Dashboard"
         style=filled
@@ -157,7 +157,7 @@ digraph {
         Dashboard [label="Streamlit\\nDashboard", fillcolor="#00d4aa", fontcolor=black]
     }
     
-    // Connections
+    # Connections
     Machine -> Stream
     Supplier -> Stream
     Stream -> Supabase
@@ -198,18 +198,9 @@ def get_all_time_output():
     """Fetch total output sum from all time."""
     try:
         # We'll use a fast query to sum the actual_output column
-        # Note: In a real Supabase setting, we might use .select('actual_output.sum()') or similar if supported via RPC
-        # For now, we'll fetch just the column to be safe on bandwidth, but for large datasets we should use an RPC.
-        # However, provided the project scale, fetching this column is acceptable or we limit to a reasonable number if it's too huge.
-        # Ideally: response = supabase.table("production_data").select("actual_output").execute()
-        # But to be safe and simple, let's just grab a larger limit for the "Total" if we don't have a sum RPC.
-        # OR: We can just use the current dataset if historical data isn't being preserved forever.
-        # Let's try to get a larger chunk.
-        
-        # FIX: Supabase defaults to 1000 rows. We need to increase this limit to capture "all time" data.
-        # For a real production app, we would use a Postgres function (RPC) for 'sum', but for this demo, 
-        # fetching 100,000 rows is a quick fix.
-        response = supabase.table("production_data").select("actual_output").order("timestamp", desc=True).limit(100000).execute()
+        # Increased limit to 1,000,000 to catch more history and prevent 'decreasing' total behavior 
+        # when older rows fall out of the window.
+        response = supabase.table("production_data").select("actual_output").order("timestamp", desc=True).limit(1000000).execute()
         df = pd.DataFrame(response.data)
         if not df.empty:
             return df['actual_output'].sum()
