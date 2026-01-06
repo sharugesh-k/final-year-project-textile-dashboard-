@@ -46,14 +46,14 @@ class MLModelManager:
                 os.path.join(MODELS_DIR, 'le_transportation_status.pkl')
             )
             
-            print("✅ All ML models loaded successfully!")
+            print("All ML models loaded successfully!")
             self.models_loaded = True
             
         except FileNotFoundError as e:
-            print(f"⚠️ Model file not found: {e}")
+            print(f"Model file not found: {e}")
             self.models_loaded = False
         except Exception as e:
-            print(f"⚠️ Error loading models: {e}")
+            print(f"Error loading models: {e}")
             self.models_loaded = False
     
     def predict_production_risk(self, df: pd.DataFrame) -> dict:
