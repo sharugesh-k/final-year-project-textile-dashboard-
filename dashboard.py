@@ -185,26 +185,41 @@ st.sidebar.markdown("""
 # Controls
 col_ctrl1, col_ctrl2 = st.columns([1, 4])
 with col_ctrl1:
-    live_mode = st.toggle("🔴 Live Monitoring", value=False)
+    # ADDED: Key to persist toggle state on rerun
+    live_mode = st.toggle("🔴 Live Monitoring", value=False, key="live_monitoring_btn")
 with col_ctrl2:
     if st.button("🔄 Refresh Data"):
-        st.cache_data.clear()
-
-if live_mode:
-    time.sleep(3) # Wait 3 seconds
-    st.rerun()    # Refresh app
+        st.cache_data.clear() # Clear any data cache
+        st.rerun()
 
 def get_all_time_output():
-    """Fetch total output sum from all time."""
+    """Fetch total output sum from all time using pagination to bypass 1000 row limit."""
     try:
-        # We'll use a fast query to sum the actual_output column
-        # Increased limit to 1,000,000 to catch more history and prevent 'decreasing' total behavior 
-        # when older rows fall out of the window.
-        response = supabase.table("production_data").select("actual_output").order("timestamp", desc=True).limit(1000000).execute()
-        df = pd.DataFrame(response.data)
-        if not df.empty:
-            return df['actual_output'].sum()
-        return 0
+        total = 0
+        current_offset = 0
+        limit = 1000
+        
+        while True:
+            response = supabase.table("production_data").select("actual_output").range(current_offset, current_offset + limit - 1).execute()
+            data = response.data
+            
+            if not data:
+                break
+                
+            df = pd.DataFrame(data)
+            if not df.empty:
+                total += df['actual_output'].sum()
+            
+            if len(data) < limit:
+                break
+                
+            current_offset += limit
+            
+            # Safety break
+            if current_offset > 50000:
+                break
+                
+        return total
     except Exception as e:
         print(f"Error fetching total output: {e}")
         return 0
@@ -274,25 +289,32 @@ if not prod_df.empty:
     c1, c2 = st.columns([2, 1])
     
     with c1:
-        # Sort data by timestamp and take last 30 per machine for clean chart
-        chart_df = prod_df.sort_values('timestamp', ascending=True).copy()
-        chart_df = chart_df.groupby('machine_id').tail(20).reset_index(drop=True)
-        
-        # Time-series Chart with smooth lines
-        fig_trend = px.line(chart_df, x='timestamp', y='actual_output', color='machine_id',
-                            title="Actual Output Trends by Machine (Last 20 per Machine)",
-                            template="plotly_dark", height=350,
-                            markers=True)
-        fig_trend.update_traces(line=dict(width=2))
-        fig_trend.update_layout(
-            paper_bgcolor="rgba(0,0,0,0)", 
-            plot_bgcolor="rgba(0,0,0,0)",
-            xaxis_title="Time",
-            yaxis_title="Output Units",
-            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
-        )
-        fig_trend.update_xaxes(tickformat="%H:%M:%S")
-        st.plotly_chart(fig_trend, use_container_width=True)
+        if not prod_df.empty:
+            # Sort data by timestamp and take last 20 entries for the chart for each machine
+            chart_df = prod_df.copy()
+            chart_df['timestamp'] = pd.to_datetime(chart_df['timestamp'])
+            chart_df = chart_df.sort_values('timestamp')
+            
+            # Show last 20 points per machine
+            chart_df = chart_df.groupby('machine_id').tail(20).reset_index(drop=True)
+            
+            # Time-series Chart with smooth lines
+            fig_trend = px.line(chart_df, x='timestamp', y='actual_output', color='machine_id',
+                                title="Actual Output Trends by Machine (Last 20 Points)",
+                                template="plotly_dark", height=350,
+                                markers=True)
+            fig_trend.update_traces(line=dict(width=3))
+            fig_trend.update_layout(
+                paper_bgcolor="rgba(0,0,0,0)", 
+                plot_bgcolor="rgba(0,0,0,0)",
+                xaxis_title="Time (HH:MM:SS)",
+                yaxis_title="Output Units",
+                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+            )
+            fig_trend.update_xaxes(tickformat="%H:%M:%S")
+            st.plotly_chart(fig_trend, use_container_width=True, key="output_trend_chart")
+        else:
+            st.info("No production data available for chart.")
 
     with c2:
         # Gauge Chart for Average Efficiency
@@ -487,5 +509,12 @@ if not prod_df.empty:
 
 else:
     st.warning("Waiting for data stream... Please run 'python simulate_all.py' in your terminal.")
-    if st.button("Reload"):
+    if st.button("Reload Data"):
         st.rerun()
+
+# --- FINAL STEP: GLOBAL LIVE MONITORING REFRESH ---
+# Moved outside to work even when data is initially empty (waiting for first stream)
+if st.session_state.get("live_monitoring_btn", False):
+    st.sidebar.info("🔄 Live Monitoring Active (Refreshing in 5s...)")
+    time.sleep(5)
+    st.rerun()

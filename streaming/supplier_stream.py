@@ -1,7 +1,7 @@
 from supabase import create_client
 from config.config import SUPABASE_URL, SUPABASE_KEY
 import random, time
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
@@ -20,7 +20,7 @@ def generate_supplier_record():
     status = random.choice(status_options)
 
     return {
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
         "supplier_id": supplier,
         "material_type": material,
         "expected_delivery_date": expected_date.strftime("%Y-%m-%d"),

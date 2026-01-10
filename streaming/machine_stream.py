@@ -1,7 +1,7 @@
 from supabase import create_client
 from config.config import SUPABASE_URL, SUPABASE_KEY
 import random, time
-from datetime import datetime
+from datetime import datetime, timezone
 
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
@@ -47,7 +47,7 @@ def generate_machine_record():
     actual = max(0, actual) # ensure non-negative
 
     return {
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
         "machine_id": machine,
         "target_output": target,
         "actual_output": actual,
