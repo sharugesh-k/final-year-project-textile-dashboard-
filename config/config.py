@@ -1,4 +1,7 @@
 import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # Use environment variables for secrets. Edit .env or set these in your shell.
 SUPABASE_URL = os.getenv("SUPABASE_URL", "https://jjfgcomlvfnwuiurtzkd.supabase.co")

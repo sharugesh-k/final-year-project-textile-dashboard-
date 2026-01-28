@@ -298,6 +298,9 @@ if not prod_df.empty:
             # Show last 20 points per machine
             chart_df = chart_df.groupby('machine_id').tail(20).reset_index(drop=True)
             
+            # Ensure final sort by timestamp to prevent "zig-zag" lines if order was lost
+            chart_df = chart_df.sort_values('timestamp')
+
             # Time-series Chart with smooth lines
             fig_trend = px.line(chart_df, x='timestamp', y='actual_output', color='machine_id',
                                 title="Actual Output Trends by Machine (Last 20 Points)",
