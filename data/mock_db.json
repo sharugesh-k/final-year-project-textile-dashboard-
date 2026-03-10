@@ -1,0 +1,113 @@
+{
+  "production_data": [
+    {
+      "timestamp": "2026-02-27T15:32:43.846583+00:00",
+      "machine_id": "M1",
+      "target_output": 82,
+      "actual_output": 74,
+      "speed_rpm": 748,
+      "downtime_minutes": 0.0,
+      "temperature_c": 33.34
+    },
+    {
+      "timestamp": "2026-02-27T15:31:36.385007+00:00",
+      "machine_id": "M2",
+      "target_output": 87,
+      "actual_output": 75,
+      "speed_rpm": 731,
+      "downtime_minutes": 0.0,
+      "temperature_c": 33.37
+    },
+    {
+      "timestamp": "2026-02-25T14:01:43.908569+00:00",
+      "machine_id": "M3",
+      "target_output": 86,
+      "actual_output": 78,
+      "speed_rpm": 845,
+      "downtime_minutes": 0.0,
+      "temperature_c": 36.55
+    },
+    {
+      "timestamp": "2026-02-25T14:01:40.860784+00:00",
+      "machine_id": "M1",
+      "target_output": 96,
+      "actual_output": 91,
+      "speed_rpm": 764,
+      "downtime_minutes": 0.0,
+      "temperature_c": 28.49
+    },
+    {
+      "timestamp": "2026-02-25T14:01:37.806006+00:00",
+      "machine_id": "M1",
+      "target_output": 85,
+      "actual_output": 82,
+      "speed_rpm": 856,
+      "downtime_minutes": 0.0,
+      "temperature_c": 32.9
+    },
+    {
+      "timestamp": "2026-02-25T14:01:34.771900+00:00",
+      "machine_id": "M1",
+      "target_output": 84,
+      "actual_output": 78,
+      "speed_rpm": 807,
+      "downtime_minutes": 0.0,
+      "temperature_c": 36.16
+    },
+    {
+      "timestamp": "2026-02-25T14:01:31.716501+00:00",
+      "machine_id": "M1",
+      "target_output": 89,
+      "actual_output": 87,
+      "speed_rpm": 804,
+      "downtime_minutes": 0.0,
+      "temperature_c": 34.91
+    }
+  ],
+  "supplier_data": [
+    {
+      "timestamp": "2026-02-27T15:32:33.622483+00:00",
+      "supplier_id": "S1",
+      "material_type": "Yarn",
+      "expected_delivery_date": "2026-03-04",
+      "actual_delivery_date": "2026-03-06",
+      "order_quantity": 503,
+      "received_quantity": 464,
+      "price_per_kg": 194.98,
+      "transportation_status": "in-transit"
+    },
+    {
+      "timestamp": "2026-02-25T14:01:43.791569+00:00",
+      "supplier_id": "S2",
+      "material_type": "Dyes",
+      "expected_delivery_date": "2026-03-04",
+      "actual_delivery_date": "2026-03-06",
+      "order_quantity": 954,
+      "received_quantity": 796,
+      "price_per_kg": 134.79,
+      "transportation_status": "arrived"
+    },
+    {
+      "timestamp": "2026-02-25T14:01:38.749353+00:00",
+      "supplier_id": "S1",
+      "material_type": "Dyes",
+      "expected_delivery_date": "2026-03-02",
+      "actual_delivery_date": "2026-03-07",
+      "order_quantity": 1138,
+      "received_quantity": 957,
+      "price_per_kg": 148.4,
+      "transportation_status": "delayed"
+    },
+    {
+      "timestamp": "2026-02-25T14:01:33.715792+00:00",
+      "supplier_id": "S2",
+      "material_type": "Yarn",
+      "expected_delivery_date": "2026-02-28",
+      "actual_delivery_date": "2026-03-01",
+      "order_quantity": 1520,
+      "received_quantity": 1388,
+      "price_per_kg": 156.95,
+      "transportation_status": "arrived"
+    }
+  ]
+}

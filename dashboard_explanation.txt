@@ -1,0 +1,37 @@
+Textile Mill Command Center Dashboard - End-to-End Explanation
+
+1. End-to-End Overview
+The Textile Mill Command Center is a real-time Streamlit dashboard designed to monitor production lines, supply chain metrics, and preemptive risks using Machine Learning models. The overarching architecture involves data ingestion from mock/actual sensors (Machine data) and transportation streams (Supplier data) into a Supabase PostgreSQL cloud database. The Streamlit dashboard continually fetches this data, processes it, passes it through ML models for risk predictions, and dynamically updates the visual components. The dashboard structure includes KPI cards for high-level summaries, real-time charts for trend analysis, and detailed management logs/model evaluations.
+
+2. How Data is Acquired (KPI Cards and Graphs)
+Data acquisition follows this path:
+- Source: Sensors (Machine IDs, Speed RPM, Temperature, Output, Downtime) and Suppliers (Orders, Transport status, Deliveries).
+- Storage: Streamed into Supabase tables (`production_data` and `supplier_data`). Alternatively, there is a local Mock DB (`data/mock_db.json`) fallback.
+- Fetching: The `DataProcessor` class in `data_processing.py` periodically fetches the latest 200 production records and 100 supply records. It calculates derived metrics like `efficiency` (actual_output / target_output * 100) and `output_gap` (target - actual). 
+- Dashboard rendering: In `dashboard.py`, `st.rerun()` handles periodic refresh (e.g., in "🔴 Live Monitoring" mode refreshes every 5s). KPI Cards pull data like current average efficiency, production risk probability, average output, and overall plant output. The graphs (like Actual Output Trends) use the sorted dataset (grouped by machine_id taking the last 20 points).
+
+3. How the Data Works
+Data operates predominantly in a time-series format:
+- Production Data tracks granular metrics at regular intervals. By sorting transactions by `timestamp` and grouping by `machine_id`, the system reconstructs machine operating behavior over time.
+- Supplier Data revolves around `expected_delivery_date` and `actual_delivery_date`. Delay days determine the `supply_risk` category ("On Time", "Moderate Risk", "High Risk").
+
+4. What Models We Have Used
+The intelligent core (`model_inference.py`) leverages three distinct ML models:
+- Model 1: Production Risk Predictor (Random Forest Classifier). Input features: Machine speed, downtime duration, temperature, target output, and encoded machine ID. Output: Probability of a downtime/failure event (Risk Score) and Risk Level (LOW, MEDIUM, HIGH, CRITICAL).
+- Model 2: Supplier Delay Predictor (Random Forest Classifier). Input features: Supplier ID, material type, order quantity, price per kg, and transportation status. Output: Probability of delivery delay and corresponding Risk Level.
+- Model 3: Efficiency Predictor (Linear Regression). Input features: Machine speed, downtime, temperature, target output. Output: Predicted future efficiency percentage.
+
+*Fallback mechanism:* If models aren't loaded, heuristic approaches (computational rules) like Thermal Stress Index [(temp - 30) * (speed / 1000)] are used.
+
+5. What We Are Expecting Through Visuals and Proper Examples
+Visuals instantly inform operators where to intervene before a failure happens.
+- KPI Cards: "⚠️ Production Risk" hitting 85% ("CRITICAL") signals an immediate need to maintain machines. 
+  *Example:* If a machine runs at high RPM (950) with high temperature (38°C), the RF classifier predicts high risk, and the KPI turns red.
+- Live Machine Performance Line Chart: Expecting to see smooth or regular zigzag output.
+  *Example:* A sudden flatline or sharp drop for machine "M1" visually alerts shift managers to investigate M1.
+- Plant Efficiency Gauge Chart: Target is >90%.
+  *Example:* If it slides to 75% in the red zone, it visually indicates systemic slowdowns.
+- Supplier Risk Bar Chart: Visualizes risk by supplier. 
+  *Example:* Red bars for "S2" clearly indicate recurrent delays. A manager immediately acts to source material from S1 or S3 instead.
+- Contributing Factors Breakdown (Model Evaluation tab): Explains *why* the risk is high.
+  *Example:* Under "Risk Contributing Factors", it might show "Temperature Impact - 8.5°C above normal", triggering immediate HVAC or coolant checks.
